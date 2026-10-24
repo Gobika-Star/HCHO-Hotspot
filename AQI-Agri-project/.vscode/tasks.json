@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Train spatial CNN-LSTM",
+			"type": "shell",
+			"command": "C:\\Users\\Gobika\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+			"args": [
+				"E:\\HCHO-akshaya\\AQI-Agri-project\\pipeline\\train_spatial_cnn_lstm.py",
+				"--epochs",
+				"20",
+				"--batch-size",
+				"16"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

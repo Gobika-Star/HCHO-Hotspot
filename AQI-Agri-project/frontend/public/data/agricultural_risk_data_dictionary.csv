@@ -1,0 +1,13 @@
+column_name,data_type,description
+year,Integer,Calendar year of the observation.
+month,Integer,"Calendar month, from 1 to 12."
+state,String,"State name: Haryana, Punjab, or Uttar Pradesh."
+HCHO,Float,Monthly state-level HCHO column density.
+fire_count,Float,State-level monthly fire indicator derived from MODIS fire-mask pixels; not a count of unique incidents.
+wind_u,Float,Monthly state-level east-west wind component.
+wind_v,Float,Monthly state-level north-south wind component.
+wind_speed,Float,Monthly state-level wind speed.
+NDVI,Float,Monthly state-level Normalized Difference Vegetation Index.
+NDVI_observed,Integer,"Indicates whether an NDVI observation is available (1 = observed, 0 = unavailable)."
+HCHO_anomaly,Float,Difference between the observed HCHO value and its state-level reference mean.
+HCHO_hotspot,Integer,"Derived HCHO hotspot label (1 = hotspot, 0 = non-hotspot); exploratory label, not verified crop damage."

@@ -1,0 +1,1797 @@
+﻿import { useEffect, useMemo, useState } from "react";
+
+import Papa from "papaparse";
+
+import {
+
+  ResponsiveContainer,
+
+  LineChart,
+
+  Line,
+
+  BarChart,
+
+  Bar,
+
+  XAxis,
+
+  YAxis,
+
+  CartesianGrid,
+
+  Tooltip,
+
+  Legend,
+
+} from "recharts";
+
+import {
+
+  LayoutDashboard,
+
+  Map,
+
+  ChartNoAxesCombined,
+
+  Activity,
+
+  Leaf,
+
+  Wind,
+
+  Flame,
+
+  AlertTriangle,
+
+  Menu,
+
+  RefreshCw,
+
+} from "lucide-react";
+
+
+
+import "./App.css";
+
+import RegionalMap from "./RegionalMap";
+
+
+
+const CSV_PATH = "/data/agricultural_risk_master_clean.csv";
+
+const PREDICTION_PATH = "/data/cnn_lstm_predictions.csv";
+
+
+
+const STATES = ["Punjab", "Haryana", "Uttar Pradesh"];
+
+
+
+const RISK_COLORS = {
+
+  high: "#c43d3d",
+
+  moderate: "#e58b24",
+
+  low: "#21966b",
+
+  insufficient: "#8994a3",
+
+};
+
+
+
+const MONTHS = [
+
+  "January",
+
+  "February",
+
+  "March",
+
+  "April",
+
+  "May",
+
+  "June",
+
+  "July",
+
+  "August",
+
+  "September",
+
+  "October",
+
+  "November",
+
+  "December",
+
+];
+
+
+
+const NAV_ITEMS = [
+
+  { name: "Dashboard", icon: LayoutDashboard },
+
+  { name: "Map View", icon: Map },
+
+  { name: "Monthly Analysis", icon: ChartNoAxesCombined },
+
+  { name: "Risk Indicators", icon: Activity },
+
+];
+
+
+
+const numberValue = (value) => {
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+
+};
+
+
+
+const formatNumber = (value, digits = 3) => {
+
+  if (value === null || value === undefined || value === "") return "N/A";
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed.toFixed(digits) : "N/A";
+
+};
+
+
+
+const getModelRisk = (row) => {
+
+  const value =
+
+    row?.predicted_probability ??
+
+    row?.risk_category ??
+
+    row?.predicted_risk ??
+
+    row?.category ??
+
+    row?.prediction;
+
+  if (value === null || value === undefined || value === "") {
+
+    return "Insufficient data";
+
+  }
+
+  const num = Number(value);
+
+  if (Number.isFinite(num)) {
+
+    if (num >= 0.5) return "High potential risk";
+
+    if (num >= 0.2) return "Moderate potential risk";
+
+    return "Low potential risk";
+
+  }
+
+  const normalized = String(value).toLowerCase();
+
+  if (normalized.includes("high")) return "High potential risk";
+
+  if (normalized.includes("moderate") || normalized.includes("medium"))
+
+    return "Moderate potential risk";
+
+  if (normalized.includes("low")) return "Low potential risk";
+
+  return "Insufficient data";
+
+};
+
+
+
+const getRiskStatus = (row) => {
+
+  if (!row) {
+
+    return {
+
+      label: "Insufficient data",
+
+      description: "No matching observation is available for this selection.",
+
+      className: "risk-neutral",
+
+    };
+
+  }
+
+
+
+  const hotspot = numberValue(row.HCHO_hotspot);
+
+
+
+  if (hotspot === 1) {
+
+    return {
+
+      label: "Potential stress detected",
+
+      description:
+
+        "The HCHO hotspot indicator is present. This is a satellite-derived proxy and does not confirm crop damage.",
+
+      className: "risk-high",
+
+    };
+
+  }
+
+
+
+  return {
+
+    label: "No potential stress signal detected",
+
+    description:
+
+      "The HCHO hotspot indicator is not present in this observation. This does not guarantee that crops are unaffected.",
+
+    className: "risk-low",
+
+  };
+
+};
+
+  const years = useMemo(() => {
+
+    return [...new Set(data.map((row) => row.year))]
+
+      .filter(Number.isFinite)
+
+      .sort((a, b) => a - b);
+
+  }, [data]);
+
+
+
+  const filteredData = useMemo(() => {
+
+    return data.filter(
+
+      (row) =>
+
+        row.state === selectedState &&
+
+        row.year === Number(selectedYear)
+
+    );
+
+  }, [data, selectedState, selectedYear]);
+
+
+
+  const selectedRow = useMemo(() => {
+
+    return (
+
+      data.find(
+
+        (row) =>
+
+          row.state === selectedState &&
+
+          row.year === Number(selectedYear) &&
+
+          row.month === Number(selectedMonth)
+
+      ) || null
+
+    );
+
+  }, [data, selectedState, selectedYear, selectedMonth]);
+
+
+
+  const selectedPrediction = useMemo(
+
+    () =>
+
+      predictionData.find(
+
+        (row) =>
+
+          row.state === selectedState &&
+
+          Number(row.year) === Number(selectedYear) &&
+
+          Number(row.month) === Number(selectedMonth)
+
+      ) || null,
+
+    [predictionData, selectedState, selectedYear, selectedMonth]
+
+  );
+
+
+
+  const monthlyTrend = useMemo(() => {
+
+    return MONTHS.map((monthName, index) => {
+
+      const monthNumber = index + 1;
+
+      const row = filteredData.find((item) => item.month === monthNumber);
+
+
+
+      return {
+
+        month: monthName.slice(0, 3),
+
+        monthNumber,
+
+        HCHO: row ? row.HCHO : null,
+
+        NDVI: row?.NDVI ?? null,
+
+        fire_count: row ? row.fire_count : null,
+
+        wind_speed: row ? row.wind_speed : null,
+
+        HCHO_anomaly: row ? row.HCHO_anomaly : null,
+
+        HCHO_hotspot: row ? row.HCHO_hotspot : null,
+
+        NDVI_observed: row ? row.NDVI_observed : 0,
+
+      };
+
+    });
+
+  }, [filteredData]);
+
+
+
+  const yearlySummary = useMemo(() => {
+
+    const validHCHO = filteredData.filter((row) => Number.isFinite(row.HCHO));
+
+    const validNDVI = filteredData.filter(
+
+      (row) => row.NDVI !== null && Number.isFinite(row.NDVI)
+
+    );
+
+
+
+    const average = (rows, key) =>
+
+      rows.length
+
+        ? rows.reduce((sum, row) => sum + numberValue(row[key]), 0) /
+
+          rows.length
+
+        : null;
+
+
+
+    return {
+
+      averageHCHO: average(validHCHO, "HCHO"),
+
+      averageNDVI: average(validNDVI, "NDVI"),
+
+      totalFires: filteredData.reduce(
+
+        (sum, row) => sum + numberValue(row.fire_count),
+
+        0
+
+      ),
+
+      averageWind: average(filteredData, "wind_speed"),
+
+      hotspotMonths: filteredData.filter(
+
+        (row) => numberValue(row.HCHO_hotspot) === 1
+
+      ).length,
+
+      observedNDVIMonths: validNDVI.length,
+
+    };
+
+  }, [filteredData]);
+
+
+
+  const riskStatus = getRiskStatus(selectedRow);
+
+
+
+  const changePage = (pageName) => {
+
+    setActivePage(pageName);
+
+    setSidebarOpen(false);
+
+  };
+
+  const renderFilters = () => (
+
+    <div className="filters">
+
+      <div className="filter-group">
+
+        <label htmlFor="state-filter">State</label>
+
+        <select
+
+          id="state-filter"
+
+          value={selectedState}
+
+          onChange={(event) => setSelectedState(event.target.value)}
+
+        >
+
+          {STATES.map((state) => (
+
+            <option key={state} value={state}>
+
+              {state}
+
+            </option>
+
+          ))}
+
+        </select>
+
+      </div>
+
+
+
+      <div className="filter-group">
+
+        <label htmlFor="year-filter">Year</label>
+
+        <select
+
+          id="year-filter"
+
+          value={selectedYear}
+
+          onChange={(event) => setSelectedYear(event.target.value)}
+
+        >
+
+          {years.map((year) => (
+
+            <option key={year} value={String(year)}>
+
+              {year}
+
+            </option>
+
+          ))}
+
+        </select>
+
+      </div>
+
+
+
+      <div className="filter-group">
+
+        <label htmlFor="month-filter">Month</label>
+
+        <select
+
+          id="month-filter"
+
+          value={selectedMonth}
+
+          onChange={(event) => setSelectedMonth(event.target.value)}
+
+        >
+
+          {MONTHS.map((month, index) => (
+
+            <option key={month} value={String(index + 1)}>
+
+              {month}
+
+            </option>
+
+          ))}
+
+        </select>
+
+      </div>
+
+    </div>
+
+  );
+
+
+
+  const renderSummaryCards = () => (
+
+    <div className="summary-grid">
+
+      <div className="summary-card">
+
+        <div className="summary-card-top">
+
+          <span>Average HCHO</span>
+
+          <div className="summary-icon purple">
+
+            <Activity size={20} />
+
+          </div>
+
+        </div>
+
+        <h2>{formatNumber(yearlySummary.averageHCHO, 6)}</h2>
+
+        <p>Mean across available months in {selectedYear}</p>
+
+      </div>
+
+
+
+      <div className="summary-card">
+
+        <div className="summary-card-top">
+
+          <span>Average NDVI</span>
+
+          <div className="summary-icon green">
+
+            <Leaf size={20} />
+
+          </div>
+
+        </div>
+
+        <h2>{formatNumber(yearlySummary.averageNDVI, 3)}</h2>
+
+        <p>
+
+          {yearlySummary.observedNDVIMonths} months with observed NDVI values
+
+        </p>
+
+      </div>
+
+
+
+      <div className="summary-card">
+
+        <div className="summary-card-top">
+
+          <span>Total Fire Count</span>
+
+          <div className="summary-icon orange">
+
+            <Flame size={20} />
+
+          </div>
+
+        </div>
+
+        <h2>{yearlySummary.totalFires.toLocaleString()}</h2>
+
+        <p>Sum of available monthly fire counts</p>
+
+      </div>
+
+
+
+      <div className="summary-card">
+
+        <div className="summary-card-top">
+
+          <span>Average Wind Speed</span>
+
+          <div className="summary-icon blue">
+
+            <Wind size={20} />
+
+          </div>
+
+        </div>
+
+        <h2>{formatNumber(yearlySummary.averageWind, 3)}</h2>
+
+        <p>Mean wind speed across available months</p>
+
+      </div>
+
+    </div>
+
+  );
+
+
+
+  const renderRiskBanner = () => (
+
+    <div className={`risk-banner ${riskStatus.className}`}>
+
+      <div className="risk-banner-icon">
+
+        <AlertTriangle size={22} />
+
+      </div>
+
+      <div>
+
+        <h3>{riskStatus.label}</h3>
+
+        <p>{riskStatus.description}</p>
+
+      </div>
+
+    </div>
+
+  );
+
+
+
+  const renderDashboard = () => (
+
+    <>
+
+      {renderSummaryCards()}
+
+
+
+      <div className="section-grid">
+
+        <section className="panel chart-panel">
+
+          <div className="panel-heading">
+
+            <div>
+
+              <h2>Monthly HCHO Trend</h2>
+
+              <p>
+
+                {selectedState} · {selectedYear}
+
+              </p>
+
+            </div>
+
+          </div>
+
+
+
+          <div className="chart-container">
+
+            <ResponsiveContainer width="100%" height={280}>
+
+              <LineChart data={monthlyTrend}>
+
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis dataKey="month" />
+
+                <YAxis />
+
+                <Tooltip />
+
+                <Legend />
+
+                <Line
+
+                  type="monotone"
+
+                  dataKey="HCHO"
+
+                  name="HCHO"
+
+                  stroke="#6c63ff"
+
+                  strokeWidth={3}
+
+                  connectNulls
+
+                  dot={{ r: 3 }}
+
+                />
+
+              </LineChart>
+
+            </ResponsiveContainer>
+
+          </div>
+
+        </section>
+
+
+
+        <section className="panel chart-panel">
+
+          <div className="panel-heading">
+
+            <div>
+
+              <h2>Monthly Fire Count</h2>
+
+              <p>
+
+                {selectedState} · {selectedYear}
+
+              </p>
+
+            </div>
+
+          </div>
+
+
+
+          <div className="chart-container">
+
+            <ResponsiveContainer width="100%" height={280}>
+
+              <BarChart data={monthlyTrend}>
+
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis dataKey="month" />
+
+                <YAxis />
+
+                <Tooltip />
+
+                <Legend />
+
+                <Bar
+
+                  dataKey="fire_count"
+
+                  name="Fire count"
+
+                  fill="#f59e0b"
+
+                  radius={[5, 5, 0, 0]}
+
+                />
+
+              </BarChart>
+
+            </ResponsiveContainer>
+
+          </div>
+
+        </section>
+
+      </div>
+
+
+
+      <section className="panel">
+
+        <div className="panel-heading">
+
+          <div>
+
+            <h2>Selected Month Risk Indicator</h2>
+
+            <p>
+
+              {selectedState} · {MONTHS[Number(selectedMonth) - 1]}{" "}
+
+              {selectedYear}
+
+            </p>
+
+          </div>
+
+        </div>
+
+
+
+        {renderRiskBanner()}
+
+
+
+        {selectedRow ? (
+
+          <>
+
+            <div className="indicator-grid">
+
+              <div className="indicator-item"><span>Model probability / score</span><strong>{formatNumber(selectedPrediction?.probability ?? selectedPrediction?.risk_probability ?? selectedPrediction?.score, 3)}</strong></div>
+
+              <div className="indicator-item"><span>HCHO</span><strong>{formatNumber(selectedRow?.HCHO, 6)}</strong></div>
+
+              <div className="indicator-item"><span>Wind speed</span><strong>{formatNumber(selectedRow?.wind_speed, 3)}</strong></div>
+
+              <div className="indicator-item"><span>NDVI</span><strong>{formatNumber(selectedRow?.NDVI, 3)}</strong></div>
+
+            </div>
+
+
+
+            <p className="detail-explanation">
+
+              Environmental context uses HCHO, wind speed, and NDVI when available.
+
+              These indicators describe potential environmental stress and do not
+
+              confirm crop damage or identify damaged farms.
+
+            </p>
+
+          </>
+
+        ) : null}
+
+
+
+        <div className="note-box">
+
+          <h3>Data required for model-predicted risk</h3>
+
+          <p>
+
+            Add <code>public/data/cnn_lstm_predictions.csv</code> or connect a
+
+            prediction API with state, year, month, a documented risk category
+
+            or thresholded score, and an optional probability. Add
+
+            <code>public/data/india_states.geojson</code> with state-name
+
+            properties for filled boundaries.
+
+          </p>
+
+          <p className="disclaimer">
+
+            These are preliminary state-level predictions, not verified
+
+            crop-damage assessments.
+
+          </p>
+
+        </div>
+
+      </section>
+
+
+
+      <section className="panel">
+
+        <div className="panel-heading">
+
+          <div>
+
+            <h2>Yearly Summary</h2>
+
+            <p>{selectedState} · {selectedYear}</p>
+
+          </div>
+
+        </div>
+
+
+
+        <div className="indicator-grid">
+
+          <div className="indicator-item">
+
+            <span>Months with records</span>
+
+            <strong>{filteredData.length}</strong>
+
+          </div>
+
+          <div className="indicator-item">
+
+            <span>Months with hotspot flag</span>
+
+            <strong>{yearlySummary.hotspotMonths}</strong>
+
+          </div>
+
+          <div className="indicator-item">
+
+            <span>Months with observed NDVI</span>
+
+            <strong>{yearlySummary.observedNDVIMonths}</strong>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </>
+
+  );
+
+  const renderMapPage = () => (
+
+    <section className="panel">
+
+      <div className="panel-heading">
+
+        <div>
+
+          <h2>Regional Risk Map</h2>
+
+          <p>
+
+            {selectedState} · {selectedYear} · {MONTHS[Number(selectedMonth) - 1]}
+
+          </p>
+
+        </div>
+
+      </div>
+
+
+
+      <RegionalMap
+
+        data={data}
+
+        predictionData={predictionData}
+
+        selectedState={selectedState}
+
+        selectedYear={selectedYear}
+
+        selectedMonth={selectedMonth}
+
+        onSelectState={setSelectedState}
+
+      />
+
+
+
+      <div className="map-legend">
+
+        <span className="legend-item">
+
+          <span className="legend-swatch" style={{ backgroundColor: RISK_COLORS.high }} />
+
+          High potential risk
+
+        </span>
+
+        <span className="legend-item">
+
+          <span className="legend-swatch" style={{ backgroundColor: RISK_COLORS.moderate }} />
+
+          Moderate potential risk
+
+        </span>
+
+        <span className="legend-item">
+
+          <span className="legend-swatch" style={{ backgroundColor: RISK_COLORS.low }} />
+
+          Low potential risk
+
+        </span>
+
+        <span className="legend-item">
+
+          <span className="legend-swatch" style={{ backgroundColor: RISK_COLORS.insufficient }} />
+
+          Insufficient data
+
+        </span>
+
+      </div>
+
+
+
+      {predictionStatus === "unavailable" && (
+
+        <div className="note-box">
+
+          <h3>Model predictions unavailable</h3>
+
+          <p>
+
+            State-level model predictions require{ }
+
+            <code>public/data/cnn_lstm_predictions.csv</code>. Until that file is
+
+            available, map polygons are shown without model-derived risk shading.
+
+          </p>
+
+        </div>
+
+      )}
+
+    </section>
+
+  );
+
+
+
+  const renderMonthlyAnalysis = () => (
+
+    <>
+
+      <div className="section-grid">
+
+        <section className="panel chart-panel">
+
+          <div className="panel-heading">
+
+            <div>
+
+              <h2>Monthly HCHO Trend</h2>
+
+              <p>{selectedState} · {selectedYear}</p>
+
+            </div>
+
+          </div>
+
+          <div className="chart-container">
+
+            <ResponsiveContainer width="100%" height={280}>
+
+              <LineChart data={monthlyTrend}>
+
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis dataKey="month" />
+
+                <YAxis />
+
+                <Tooltip />
+
+                <Legend />
+
+                <Line
+
+                  type="monotone"
+
+                  dataKey="HCHO"
+
+                  name="HCHO"
+
+                  stroke="#6c63ff"
+
+                  strokeWidth={3}
+
+                  connectNulls
+
+                  dot={{ r: 3 }}
+
+                />
+
+              </LineChart>
+
+            </ResponsiveContainer>
+
+          </div>
+
+        </section>
+
+
+
+        <section className="panel chart-panel">
+
+          <div className="panel-heading">
+
+            <div>
+
+              <h2>Monthly NDVI Trend</h2>
+
+              <p>{selectedState} · {selectedYear}</p>
+
+            </div>
+
+          </div>
+
+          <div className="chart-container">
+
+            <ResponsiveContainer width="100%" height={280}>
+
+              <LineChart data={monthlyTrend}>
+
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis dataKey="month" />
+
+                <YAxis />
+
+                <Tooltip />
+
+                <Legend />
+
+                <Line
+
+                  type="monotone"
+
+                  dataKey="NDVI"
+
+                  name="NDVI"
+
+                  stroke="#21966b"
+
+                  strokeWidth={3}
+
+                  connectNulls
+
+                  dot={{ r: 3 }}
+
+                />
+
+              </LineChart>
+
+            </ResponsiveContainer>
+
+          </div>
+
+        </section>
+
+
+
+        <section className="panel chart-panel">
+
+          <div className="panel-heading">
+
+            <div>
+
+              <h2>Monthly Fire Count</h2>
+
+              <p>{selectedState} · {selectedYear}</p>
+
+            </div>
+
+          </div>
+
+          <div className="chart-container">
+
+            <ResponsiveContainer width="100%" height={280}>
+
+              <BarChart data={monthlyTrend}>
+
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis dataKey="month" />
+
+                <YAxis />
+
+                <Tooltip />
+
+                <Legend />
+
+                <Bar
+
+                  dataKey="fire_count"
+
+                  name="Fire count"
+
+                  fill="#f59e0b"
+
+                  radius={[5, 5, 0, 0]}
+
+                />
+
+              </BarChart>
+
+            </ResponsiveContainer>
+
+          </div>
+
+        </section>
+
+
+
+        <section className="panel chart-panel">
+
+          <div className="panel-heading">
+
+            <div>
+
+              <h2>Monthly Wind Speed</h2>
+
+              <p>{selectedState} · {selectedYear}</p>
+
+            </div>
+
+          </div>
+
+          <div className="chart-container">
+
+            <ResponsiveContainer width="100%" height={280}>
+
+              <LineChart data={monthlyTrend}>
+
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis dataKey="month" />
+
+                <YAxis />
+
+                <Tooltip />
+
+                <Legend />
+
+                <Line
+
+                  type="monotone"
+
+                  dataKey="wind_speed"
+
+                  name="Wind speed"
+
+                  stroke="#2563eb"
+
+                  strokeWidth={3}
+
+                  connectNulls
+
+                  dot={{ r: 3 }}
+
+                />
+
+              </LineChart>
+
+            </ResponsiveContainer>
+
+          </div>
+
+        </section>
+
+      </div>
+
+
+
+      <section className="panel">
+
+        <div className="panel-heading">
+
+          <div>
+
+            <h2>Yearly Summary</h2>
+
+            <p>{selectedState} · {selectedYear}</p>
+
+          </div>
+
+        </div>
+
+        <div className="indicator-grid">
+
+          <div className="indicator-item">
+
+            <span>Months with records</span>
+
+            <strong>{filteredData.length}</strong>
+
+          </div>
+
+          <div className="indicator-item">
+
+            <span>Months with hotspot flag</span>
+
+            <strong>{yearlySummary.hotspotMonths}</strong>
+
+          </div>
+
+          <div className="indicator-item">
+
+            <span>Months with observed NDVI</span>
+
+            <strong>{yearlySummary.observedNDVIMonths}</strong>
+
+          </div>
+
+          <div className="indicator-item">
+
+            <span>Total fire count</span>
+
+            <strong>{yearlySummary.totalFires.toLocaleString()}</strong>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </>
+
+  );
+
+
+
+  const renderRiskIndicators = () => (
+
+    <>
+
+      <section className="panel">
+
+        <div className="panel-heading">
+
+          <div>
+
+            <h2>Current Observation Risk Indicators</h2>
+
+            <p>
+
+              {selectedState} · {selectedYear} · {MONTHS[Number(selectedMonth) - 1]}
+
+            </p>
+
+          </div>
+
+        </div>
+
+
+
+        {renderRiskBanner()}
+
+
+
+        {selectedRow ? (
+
+          <>
+
+            <div className="indicator-grid">
+
+              <div className="indicator-item">
+
+                <span>Model probability / score</span>
+
+                <strong>
+
+                  {formatNumber(
+
+                    selectedPrediction?.probability ??
+
+                      selectedPrediction?.risk_probability ??
+
+                      selectedPrediction?.score,
+
+                    3
+
+                  )}
+
+                </strong>
+
+              </div>
+
+              <div className="indicator-item">
+
+                <span>HCHO</span>
+
+                <strong>{formatNumber(selectedRow?.HCHO, 6)}</strong>
+
+              </div>
+
+              <div className="indicator-item">
+
+                <span>Wind speed</span>
+
+                <strong>{formatNumber(selectedRow?.wind_speed, 3)}</strong>
+
+              </div>
+
+              <div className="indicator-item">
+
+                <span>NDVI</span>
+
+                <strong>{formatNumber(selectedRow?.NDVI, 3)}</strong>
+
+              </div>
+
+              <div className="indicator-item">
+
+                <span>Fire count</span>
+
+                <strong>{formatNumber(selectedRow?.fire_count, 0)}</strong>
+
+              </div>
+
+              <div className="indicator-item">
+
+                <span>HCHO anomaly</span>
+
+                <strong>{formatNumber(selectedRow?.HCHO_anomaly, 3)}</strong>
+
+              </div>
+
+              <div className="indicator-item">
+
+                <span>HCHO hotspot</span>
+
+                <strong>{selectedRow?.HCHO_hotspot ?? "N/A"}</strong>
+
+              </div>
+
+              <div className="indicator-item">
+
+                <span>Model risk category</span>
+
+                <strong>{getModelRisk(selectedPrediction)}</strong>
+
+              </div>
+
+            </div>
+
+
+
+            <div className="note-box">
+
+              <h3>How to read these indicators</h3>
+
+              <p>
+
+                HCHO hotspot flags are satellite-derived proxies and do not confirm
+
+                crop damage. Model outputs are preliminary state-level predictions
+
+                and require independent validation before operational use.
+
+              </p>
+
+            </div>
+
+          </>
+
+        ) : (
+
+          <div className="note-box">
+
+            <h3>No matching observation</h3>
+
+            <p>
+
+              No record is available for the currently selected state, year, and
+
+              month combination.
+
+            </p>
+
+          </div>
+
+        )}
+
+      </section>
+
+
+
+      <section className="panel">
+
+        <div className="panel-heading">
+
+          <div>
+
+            <h2>Yearly Summary</h2>
+
+            <p>{selectedState} · {selectedYear}</p>
+
+          </div>
+
+        </div>
+
+        <div className="indicator-grid">
+
+          <div className="indicator-item">
+
+            <span>Months with records</span>
+
+            <strong>{filteredData.length}</strong>
+
+          </div>
+
+          <div className="indicator-item">
+
+            <span>Months with hotspot flag</span>
+
+            <strong>{yearlySummary.hotspotMonths}</strong>
+
+          </div>
+
+          <div className="indicator-item">
+
+            <span>Months with observed NDVI</span>
+
+            <strong>{yearlySummary.observedNDVIMonths}</strong>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </>
+
+  );
+
+
+
+
+
+  const renderPageContent = () => {
+
+    switch (activePage) {
+
+      case "Map View":
+
+        return renderMapPage();
+
+      case "Monthly Analysis":
+
+        return renderMonthlyAnalysis();
+
+      case "Risk Indicators":
+
+        return renderRiskIndicators();
+
+      case "Dashboard":
+
+      default:
+
+        return renderDashboard();
+
+    }
+
+  };
+
+
+
+  if (loading) {
+
+    return (
+
+      <div className="loading-screen">
+
+        <RefreshCw className="loading-spinner" size={30} />
+
+        <h2>Loading agricultural risk data...</h2>
+
+        <p>Please wait while the dataset is being prepared.</p>
+
+      </div>
+
+    );
+
+  }
+
+
+
+  if (error) {
+
+    return (
+
+      <div className="error-screen">
+
+        <AlertTriangle size={32} />
+
+        <h2>Unable to load dataset</h2>
+
+        <p>{error}</p>
+
+        <p>
+
+          Check that the CSV file is located at{" "}
+
+          <code>frontend/public/data/agricultural_risk_master_clean.csv</code>.
+
+        </p>
+
+        <button className="primary-button" onClick={() => window.location.reload()}>
+
+          Try again
+
+        </button>
+
+      </div>
+
+    );
+
+  }
+
+
+
+  return (
+
+    <div className="app-layout">
+
+      {sidebarOpen && (
+
+        <button
+
+          className="sidebar-backdrop"
+
+          aria-label="Close navigation"
+
+          onClick={() => setSidebarOpen(false)}
+
+        />
+
+      )}
+
+
+
+      <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
+
+        <div className="brand">
+
+          <div className="brand-icon">
+
+            <Leaf size={25} />
+
+          </div>
+
+          <div>
+
+            <h2>AgriSense</h2>
+
+            <p>Risk Assessment</p>
+
+          </div>
+
+        </div>
+
+
+
+        <div className="sidebar-label">WORKSPACE</div>
+
+
+
+        <nav className="sidebar-nav">
+
+          {NAV_ITEMS.map(({ name, icon: Icon }) => (
+
+            <button
+
+              key={name}
+
+              className={`nav-item ${activePage === name ? "active" : ""}`}
+
+              onClick={() => changePage(name)}
+
+            >
+
+              <Icon size={19} />
+
+              <span>{name}</span>
+
+            </button>
+
+          ))}
+
+        </nav>
+
+
+
+        <div className="sidebar-bottom">
+
+          <div className="sidebar-status">
+
+            <span className="status-indicator" />
+
+            <div>
+
+              <strong>Dataset loaded</strong>
+
+              <p>{data.length} observations</p>
+
+            </div>
+
+          </div>
+
+          <p className="sidebar-footer">Agricultural Risk Dashboard</p>
+
+        </div>
+
+      </aside>
+
+
+
+      <main className="main-content">
+
+        <header className="topbar">
+
+          <button
+
+            className="menu-button"
+
+            aria-label="Open navigation"
+
+            onClick={() => setSidebarOpen(true)}
+
+          >
+
+            <Menu size={23} />
+
+          </button>
+
+
+
+          <div className="page-heading">
+
+            <span className="eyebrow">AGRICULTURAL MONITORING</span>
+
+            <h1>
+
+              {activePage === "Dashboard"
+
+                ? "Agricultural Risk Assessment"
+
+                : activePage}
+
+            </h1>
+
+            <p>Satellite-derived environmental indicators and monthly analysis</p>
+
+          </div>
+
+
+
+          <div className="topbar-badge">
+
+            <span className="status-indicator" />
+
+            Data available
+
+          </div>
+
+        </header>
+
+
+
+        <div className="page-body">
+
+          {renderFilters()}
+
+          {renderPageContent()}
+
+
+
+          <footer className="page-footer">
+
+            <p>
+
+              This dashboard presents exploratory satellite-derived indicators.
+
+              It does not confirm crop damage or provide field-level diagnoses.
+
+              Model outputs and hotspot indicators require independent validation
+
+              before operational use.
+
+            </p>
+
+          </footer>
+
+        </div>
+
+      </main>
+
+    </div>
+
+  );
+
+}
+
+
+
+export default App;

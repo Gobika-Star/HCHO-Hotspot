@@ -1,0 +1,7 @@
+earthengine-api>=1.5
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.5
+tensorflow>=2.16
+rasterio>=1.4
+requests>=2.32

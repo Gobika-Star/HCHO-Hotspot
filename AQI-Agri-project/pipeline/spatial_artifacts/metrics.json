@@ -1,0 +1,34 @@
+{
+  "states": [
+    "Haryana",
+    "Punjab",
+    "Uttar Pradesh"
+  ],
+  "input_months": 95,
+  "sequence_months": 12,
+  "patch_size": 32,
+  "patch_stride": 16,
+  "patches_by_state": {
+    "Haryana": 12,
+    "Punjab": 9,
+    "Uttar Pradesh": 12
+  },
+  "training_sequences": 1782,
+  "validation_sequences": 462,
+  "test_sequences": 495,
+  "training_label_counts": {
+    "0": 1603,
+    "1": 179
+  },
+  "training_accuracy": 0.9231200897867564,
+  "test_accuracy": 0.9191919191919192,
+  "test_precision": 0.7282608695652174,
+  "test_recall": 0.8170731707317073,
+  "test_roc_auc": 0.9627059587787161,
+  "label_rule": "Patch mean HCHO >= state-specific training-period 90th percentile",
+  "thresholds_by_state": {
+    "Haryana": 0.0002379558398388327,
+    "Punjab": 0.000251181423664093,
+    "Uttar Pradesh": 0.00022592954337596896
+  }
+}

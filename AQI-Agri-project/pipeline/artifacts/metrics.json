@@ -1,0 +1,21 @@
+{
+  "input_records": 285,
+  "sequence_months": 12,
+  "training_sequences": 159,
+  "validation_sequences": 42,
+  "test_sequences": 45,
+  "training_label_counts": {
+    "0": 143,
+    "1": 16
+  },
+  "test_accuracy": 0.6888888888888889,
+  "test_precision": 0.3333333333333333,
+  "test_recall": 0.75,
+  "test_roc_auc": 0.7466216216216216,
+  "hotspot_rule": "HCHO >= state-specific 90th percentile of training-period HCHO",
+  "thresholds_by_state": {
+    "Haryana": 0.0002454581329431,
+    "Punjab": 0.00026159275538936,
+    "Uttar Pradesh": 0.00024213736278088
+  }
+}

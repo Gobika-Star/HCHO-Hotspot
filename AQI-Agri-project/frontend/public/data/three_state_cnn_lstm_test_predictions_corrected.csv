@@ -1,0 +1,25 @@
+state,target_year,target_month,HCHO_hotspot,predicted_probability,predicted_hotspot
+Haryana,2026,1,0,0.07133758,0
+Haryana,2026,2,0,0.09966884,0
+Haryana,2026,3,0,0.42788115,0
+Haryana,2026,4,0,0.42417455,0
+Haryana,2026,5,1,0.8375106,1
+Haryana,2026,6,1,0.7348613,1
+Haryana,2026,7,0,0.03251587,0
+Haryana,2026,8,0,0.01280487,0
+Punjab,2026,1,0,0.12458169,0
+Punjab,2026,2,0,0.05920931,0
+Punjab,2026,3,0,0.25677043,0
+Punjab,2026,4,0,0.31196365,0
+Punjab,2026,5,1,0.9529818,1
+Punjab,2026,6,1,0.9309533,1
+Punjab,2026,7,0,0.055791922,0
+Punjab,2026,8,0,0.025477132,0
+Uttar Pradesh,2026,1,0,0.031568587,0
+Uttar Pradesh,2026,2,0,0.018569602,0
+Uttar Pradesh,2026,3,0,0.085685305,0
+Uttar Pradesh,2026,4,1,0.70633984,1
+Uttar Pradesh,2026,5,1,0.7292804,1
+Uttar Pradesh,2026,6,1,0.75731224,1
+Uttar Pradesh,2026,7,0,0.3010959,0
+Uttar Pradesh,2026,8,0,0.037401784,0
